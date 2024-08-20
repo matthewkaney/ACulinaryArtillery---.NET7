@@ -120,6 +120,36 @@ namespace ACulinaryArtillery
         } */
     }
 
+    [HarmonyPatch(typeof(BlockFirepit))]
+    class FirepitPatches {
+        // This patches BlockFirepit so that when the player interacts with an empty firepit while holding a saucepan,
+        // it automatically places the saucepan in the firepit. This mirrors the vanilla behavior of cookpots.
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(BlockFirepit), nameof(BlockFirepit.OnBlockInteractStart))]
+        public static bool Firepit_Saucepan_Interaction(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, BlockFirepit __instance, ref bool __result) {
+            if (__instance.Stage == 5) {
+                if (blockSel != null && !world.Claims.TryAccess(byPlayer, blockSel.Position, EnumBlockAccessFlags.Use)) {
+                    return true;
+                }
+
+                ItemStack stack = byPlayer.InventoryManager.ActiveHotbarSlot?.Itemstack;
+                BlockEntityFirepit bef = world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntityFirepit;
+
+                if (
+                        stack?.Collectible is BlockSaucepan &&
+                        bef.inputSlot.Empty &&
+                        byPlayer.InventoryManager.ActiveHotbarSlot.TryPutInto(world, bef.inputSlot, 1) != 0
+                    ) {
+                        // Place saucepan and skip normal OnBlockInteractStart method
+                        __result = true;
+                        return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
 
     class SqueezeHoneyAndCrackEggPatches {
 
